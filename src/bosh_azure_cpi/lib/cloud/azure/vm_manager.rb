@@ -149,10 +149,10 @@ module Bosh::AzureCloud
           # Delete NICs
           if network_interfaces
             network_interfaces.each do |network_interface|
-              @azure_client2.delete_network_interface(resource_group_name, network_interface[:name])
               unless network_interface[:tags]['application_gateway'].nil?
                 @azure_client2.delete_backend_address_of_application_gateway(network_interface[:tags]['application_gateway'], network_interface[:private_ip])
               end
+              @azure_client2.delete_network_interface(resource_group_name, network_interface[:name])
             end
           else
             # If create_network_interfaces fails for some reason, some of the NICs are created and some are not.
@@ -196,10 +196,10 @@ module Bosh::AzureCloud
 
         # Delete NICs
         vm[:network_interfaces].each do |network_interface|
-          @azure_client2.delete_network_interface(resource_group_name, network_interface[:name])
           unless network_interface[:tags]['application_gateway'].nil?
             @azure_client2.delete_backend_address_of_application_gateway(network_interface[:tags]['application_gateway'], network_interface[:private_ip])
           end
+          @azure_client2.delete_network_interface(resource_group_name, network_interface[:name])
         end
       else
         # If the VM is deleted but the availability sets are not deleted due to some reason, BOSH will retry and vm will be nil.
