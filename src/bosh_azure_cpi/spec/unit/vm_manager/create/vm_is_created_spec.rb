@@ -246,6 +246,92 @@ describe Bosh::AzureCloud::VMManager do
         end
       end
 
+      # Application Gateway
+      context "#application_gateway" do
+        context "with the application gateway provided in resource_pool, and network_interfaces[0]'s tags don't include 'application_gateway'" do
+          let(:resource_pool) {
+            {
+              'instance_type'                 => 'Standard_D1',
+              'storage_account_name'          => 'dfe03ad623f34d42999e93ca',
+              'caching'                       => 'ReadWrite',
+              'availability_set'              => 'fake-avset',
+              'platform_update_domain_count'  => 5,
+              'platform_fault_domain_count'   => 3,
+              'load_balancer'                 => 'fake-lb-name',
+              'application_gateway'           => 'fake-ag-name'
+            }
+          }
+          let(:public_ip) { { :ip_address => 'public-ip' } }
+          let(:nic0_params) {
+            {
+              :name            => "#{instance_id}-0",
+              :location        => location,
+              :private_ip      => nil,
+              :public_ip       => public_ip,
+              :security_group  => security_group,
+              :ipconfig_name   => 'ipconfig0'
+            }
+          }
+          let(:application_gateway) { 'fake-ag-name' }
+          let(:tags) {
+            {
+              'user-agent' => 'bosh',
+              'application_gateway' => application_gateway
+            }
+          }
+          let(:network_interface0) {
+            {
+              :name => "foo0",
+              :tags=> tags,
+              :private_ip => "fake-private-ip0"
+            }
+          }
+          let(:network_interface1) {
+            {
+              :name => "foo1",
+              :tags=> tags,
+              :private_ip => "fake-private-ip1"
+            }
+          }
+
+          before do
+            allow(client2).to receive(:get_network_interface_by_name).
+              and_return(network_interface0, network_interface1)
+          end
+
+          context "and the association succeeded" do
+            it "should succeed" do
+              expect(client2).not_to receive(:delete_virtual_machine)
+              expect(client2).not_to receive(:delete_network_interface)
+
+              expect(client2).to receive(:create_network_interface).
+                with(nic0_params, subnet, tags, load_balancer)
+              expect(client2).to receive(:add_backend_address_of_application_gateway).
+                with(application_gateway, network_interface0[:private_ip])
+              vm_manager.create(instance_id, location, stemcell_info, resource_pool, network_configurator, env)
+            end
+          end
+
+          context "and the association failed" do
+            before do
+              allow(client2).to receive(:create_network_interface)
+              allow(client2).to receive(:add_backend_address_of_application_gateway).
+                and_raise("association failed")
+            end
+
+            it "should delete vm and nics, disassociate the ip from AG, and then raise an error" do
+              expect(client2).to receive(:delete_virtual_machine)
+              expect(client2).to receive(:delete_network_interface).exactly(2).times
+
+              expect(client2).to receive(:delete_backend_address_of_application_gateway).exactly(2).times
+              expect{
+                vm_manager.create(instance_id, location, stemcell_info, resource_pool, network_configurator, env)
+              }.to raise_error /association failed/
+            end
+          end
+        end
+      end
+
       context "with assign dynamic public IP enabled" do
         let(:dynamic_public_ip) { 'fake-dynamic-public-ip' }
         let(:nic0_params) {

@@ -109,9 +109,23 @@ module Bosh::AzureCloud
         :managed                      => @use_managed_disks
       }
 
-      unless resource_pool['application_gateway'].nil?
-        @azure_client2.add_backend_address_of_application_gateway(resource_pool['application_gateway'], network_interfaces[0][:private_ip])
+      if network_interfaces
+        unless network_interfaces[0][:tags]['application_gateway'].nil?
+          unless resource_pool['application_gateway'].nil?
+            unless network_interfaces[0][:tags]['application_gateway'] == resource_pool['application_gateway']
+              @azure_client2.delete_backend_address_of_application_gateway(network_interfaces[0][:tags]['application_gateway'], network_interfaces[0][:private_ip])
+              @azure_client2.add_backend_address_of_application_gateway(resource_pool['application_gateway'], network_interfaces[0][:private_ip])
+            end
+          else
+            @azure_client2.delete_backend_address_of_application_gateway(network_interfaces[0][:tags]['application_gateway'], network_interfaces[0][:private_ip])
+          end
+        else
+          unless resource_pool['application_gateway'].nil?
+            @azure_client2.add_backend_address_of_application_gateway(resource_pool['application_gateway'], network_interfaces[0][:private_ip])
+          end
+        end
       end
+      
 
       create_virtual_machine(instance_id, vm_params, network_interfaces, availability_set_params)
 
