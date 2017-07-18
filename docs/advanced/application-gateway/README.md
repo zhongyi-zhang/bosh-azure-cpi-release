@@ -24,30 +24,28 @@ Azure Application Gateway provides application-level routing and load balancing 
   ```
 
 * It is assumed that you have already created a basic Cloud Foundry deployment, with multiple routers specified in the manifest, and removed HA Proxy part.
-
-* Azure Powershell (At least v1.0.2) (Optional)
-
-  Download [Azure Powershell](https://github.com/Azure/azure-powershell/releases/download/v1.0.2-December2015/azure-powershell.1.0.2.msi) and install.
   
 # 3 Configuration Steps  
 
-## 3.2 Create Application Gateway and its Public IP
+## 3.1 Create Application Gateway and its Public IP
 
-### Azure ARM Template (recommended)
+### Azure ARM Template
 
 <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fzhongyi-zhang%2Fbosh-azure-cpi-release%2Fsupport-application-gateway%2Fdocs%2Fadvanced%2Fapplication-gateway%2Ftemplates%2Fazuredeploy.json" target="_blank">
     <img src="http://azuredeploy.net/deploybutton.png"/>
 </a>
 
-### Azure Powershell
+  * The cert data is the .pfx file you created in pre-requisites in base64. And you can get it by running:
+  
+  ```
+  base64 domain.name.pfx | tr -d '\n'
+  ```
 
-[Use Powershell to create Application Gateway](./powershell/README.md)
+## 3.2 Add Cloud Foundry routers into Application Gateway's backend pool
 
-## 3.3 Add Cloud Foundry routers into Application Gateway's backendpool
+### 3.2.1 Update Cloud Foundry manifest
 
-### 3.3.1 Update Cloud Foundry manifest
-
-  Add `application_gateway` to the corresponding `cloud_properties` of routers in `resource_pools:
+  Add `application_gateway` to the corresponding `cloud_properties` of routers in `resource_pools`:
 
   ```
   - cloud_properties:
@@ -63,14 +61,14 @@ Azure Application Gateway provides application-level routing and load balancing 
       version: latest
   ```
 
-### 3.3.2 Update Cloud Foundry deployment
+### 3.2.2 Update Cloud Foundry deployment
 
   ```
   bosh deployment multiple-vm-cf.yml
   bosh deploy -n
   ```
     
-## 3.4 Configure DNS for your Cloud Foundry domain.
+## 3.3 Configure DNS for your Cloud Foundry domain.
 
   * For production, you need to update the DNS configuration according to the belew sample.
   * For testing only, you can also update local host file.
