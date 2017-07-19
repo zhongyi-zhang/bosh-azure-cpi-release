@@ -248,47 +248,30 @@ describe Bosh::AzureCloud::VMManager do
 
       # Application Gateway
       context "#application_gateway" do
-        context "with the application gateway provided in resource_pool, and network_interfaces[0]'s tags don't include 'application_gateway'" do
+        context "with the application gateway provided in resource_pool" do
+          let(:application_gateway_name) { 'fake-ag-name' }
           let(:resource_pool) {
             {
-              'instance_type'                 => 'Standard_D1',
-              'storage_account_name'          => 'dfe03ad623f34d42999e93ca',
-              'caching'                       => 'ReadWrite',
-              'availability_set'              => 'fake-avset',
-              'platform_update_domain_count'  => 5,
-              'platform_fault_domain_count'   => 3,
-              'load_balancer'                 => 'fake-lb-name',
-              'application_gateway'           => 'fake-ag-name'
+              'instance_type'       => 'Standard_D1',
+              'application_gateway' => application_gateway_name
             }
           }
           let(:public_ip) { { :ip_address => 'public-ip' } }
-          let(:nic0_params) {
-            {
-              :name            => "#{instance_id}-0",
-              :location        => location,
-              :private_ip      => nil,
-              :public_ip       => public_ip,
-              :security_group  => security_group,
-              :ipconfig_name   => 'ipconfig0'
-            }
-          }
-          let(:application_gateway) { 'fake-ag-name' }
           let(:tags) {
             {
-              'user-agent' => 'bosh',
-              'application_gateway' => application_gateway
+              'user-agent' => 'bosh'
             }
           }
           let(:network_interface0) {
             {
-              :name => "foo0",
+              :name => "#{instance_id}-0",
               :tags=> tags,
               :private_ip => "fake-private-ip0"
             }
           }
           let(:network_interface1) {
             {
-              :name => "foo1",
+              :name => "#{instance_id}-1",
               :tags=> tags,
               :private_ip => "fake-private-ip1"
             }
@@ -297,6 +280,7 @@ describe Bosh::AzureCloud::VMManager do
           before do
             allow(client2).to receive(:get_network_interface_by_name).
               and_return(network_interface0, network_interface1)
+            allow(client2).to receive(:create_availability_set)
           end
 
           context "and the association succeeded" do
@@ -304,11 +288,12 @@ describe Bosh::AzureCloud::VMManager do
               expect(client2).not_to receive(:delete_virtual_machine)
               expect(client2).not_to receive(:delete_network_interface)
 
-              expect(client2).to receive(:create_network_interface).
-                with(nic0_params, subnet, tags, load_balancer)
+              expect(client2).to receive(:create_network_interface).twice
               expect(client2).to receive(:add_backend_address_of_application_gateway).
-                with(application_gateway, network_interface0[:private_ip])
-              vm_manager.create(instance_id, location, stemcell_info, resource_pool, network_configurator, env)
+                with(application_gateway_name, network_interface0[:private_ip])
+              expect{
+                vm_manager.create(instance_id, location, stemcell_info, resource_pool, network_configurator, env)
+              }.not_to raise_error
             end
           end
 
@@ -319,11 +304,9 @@ describe Bosh::AzureCloud::VMManager do
                 and_raise("association failed")
             end
 
-            it "should delete vm and nics, disassociate the ip from AG, and then raise an error" do
-              expect(client2).to receive(:delete_virtual_machine)
+            it "should delete nics, disassociate the ip from AG, and then raise an error" do
               expect(client2).to receive(:delete_network_interface).exactly(2).times
 
-              expect(client2).to receive(:delete_backend_address_of_application_gateway).exactly(2).times
               expect{
                 vm_manager.create(instance_id, location, stemcell_info, resource_pool, network_configurator, env)
               }.to raise_error /association failed/

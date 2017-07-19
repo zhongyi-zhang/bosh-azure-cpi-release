@@ -109,21 +109,8 @@ module Bosh::AzureCloud
         :managed                      => @use_managed_disks
       }
 
-      if network_interfaces
-        unless network_interfaces[0][:tags]['application_gateway'].nil?
-          unless resource_pool['application_gateway'].nil?
-            unless network_interfaces[0][:tags]['application_gateway'] == resource_pool['application_gateway']
-              @azure_client2.delete_backend_address_of_application_gateway(network_interfaces[0][:tags]['application_gateway'], network_interfaces[0][:private_ip])
-              @azure_client2.add_backend_address_of_application_gateway(resource_pool['application_gateway'], network_interfaces[0][:private_ip])
-            end
-          else
-            @azure_client2.delete_backend_address_of_application_gateway(network_interfaces[0][:tags]['application_gateway'], network_interfaces[0][:private_ip])
-          end
-        else
-          unless resource_pool['application_gateway'].nil?
-            @azure_client2.add_backend_address_of_application_gateway(resource_pool['application_gateway'], network_interfaces[0][:private_ip])
-          end
-        end
+      unless resource_pool['application_gateway'].nil?
+        set_backend_address_of_application_gateway("add", resource_pool['application_gateway'], network_interfaces[0][:private_ip])
       end
       
 
@@ -163,7 +150,7 @@ module Bosh::AzureCloud
           # Delete NICs
           if network_interfaces
             network_interfaces.each do |network_interface|
-              unless network_interface[:tags]['application_gateway'].nil?
+              if network_interface[:tags] && network_interface[:tags]['application_gateway']
                 @azure_client2.delete_backend_address_of_application_gateway(network_interface[:tags]['application_gateway'], network_interface[:private_ip])
               end
               @azure_client2.delete_network_interface(resource_group_name, network_interface[:name])
@@ -210,7 +197,7 @@ module Bosh::AzureCloud
 
         # Delete NICs
         vm[:network_interfaces].each do |network_interface|
-          unless network_interface[:tags]['application_gateway'].nil?
+          if network_interface[:tags] && network_interface[:tags]['application_gateway']
             @azure_client2.delete_backend_address_of_application_gateway(network_interface[:tags]['application_gateway'], network_interface[:private_ip])
           end
           @azure_client2.delete_network_interface(resource_group_name, network_interface[:name])

@@ -70,6 +70,7 @@ describe Bosh::AzureCloud::VMManager do
 
         it "should delete all resources" do
           expect(client2).to receive(:delete_virtual_machine).with(resource_group_name, vm_name)
+          expect(client2).to receive(:delete_backend_address_of_application_gateway).with(appgw_name, appgw_backend_pool_ip)
           expect(client2).to receive(:delete_network_interface).with(resource_group_name, "fake-nic-1")
           expect(client2).to receive(:delete_network_interface).with(resource_group_name, "fake-nic-2")
           expect(client2).to receive(:delete_public_ip).with(resource_group_name, vm_name)
