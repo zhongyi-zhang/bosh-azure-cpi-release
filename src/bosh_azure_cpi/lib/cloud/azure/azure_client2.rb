@@ -1476,35 +1476,23 @@ module Bosh::AzureCloud
     #
     def add_backend_address_of_application_gateway(name, ip_address)
       @logger.debug("add_backend_address_of_application_gateway - trying to add `#{ip_address}' to the backend address pools of the applicaiton gateway #{name}")
-      
-      mutex = FileMutex.new("#{BOSH_LOCK_APPLICATION_GATEWAY}-#{name}", @logger, BOSH_LOCK_APPLICATION_GATEWAY_TIMEOUT)
-      begin
-        if mutex.lock
-          url = rest_api_url(REST_API_PROVIDER_NETWORK, REST_API_NETWORK_APPLICATION_GATEWAYS, name: name)
-          ag = get_resource_by_id(url)
-          if ag.nil?
-            raise AzureNotFoundError, "get_application_gateway_by_name - cannot find the application gateway by name `#{name}'"
-          end
 
-          backend_addresses = ag['properties']['backendAddressPools'][0]['properties']['backendAddresses']
-          backend_address = {
-            "ipAddress" => ip_address
-          }
-          unless backend_addresses.include?(backend_address)
-            backend_addresses.push(backend_address)
-            http_put(url, ag, ignore_canceled_status: true)
-          end
-          mutex.unlock
-        else
-          mutex.wait
-        end
-        true
-      rescue => e
-        if e.message == BOSH_LOCK_EXCEPTION_TIMEOUT
-          cloud_error("add_backend_address_of_application_gateway: Failed to finish the adding of the backend address `#{ip_address}' in application gateway `#{name}' in #{mutex.expired} seconds.")
-        end
-        raise e
+      url = rest_api_url(REST_API_PROVIDER_NETWORK, REST_API_NETWORK_APPLICATION_GATEWAYS, name: name)
+      ag = get_resource_by_id(url)
+      if ag.nil?
+        raise AzureNotFoundError, "add_backend_address_of_application_gateway - Cannot find the application gateway \"#{name}\"."
       end
+
+      backend_addresses = ag['properties']['backendAddressPools'][0]['properties']['backendAddresses']
+      backend_address = {
+        "ipAddress" => ip_address
+      }
+      unless backend_addresses.include?(backend_address)
+        backend_addresses.push(backend_address)
+        http_put(url, ag)
+      end
+
+      true
     end
 
     # Delete a backend address for an application gateway
@@ -1517,35 +1505,23 @@ module Bosh::AzureCloud
     #
     def delete_backend_address_of_application_gateway(name, ip_address)
       @logger.debug("delete_backend_address_of_application_gateway - trying to remove `#{ip_address}' from the backend address pools of the applicaiton gateway #{name}")
-      
-      mutex = FileMutex.new("#{BOSH_LOCK_APPLICATION_GATEWAY}-#{name}", @logger, BOSH_LOCK_APPLICATION_GATEWAY_TIMEOUT)
-      begin
-        if mutex.lock
-          url = rest_api_url(REST_API_PROVIDER_NETWORK, REST_API_NETWORK_APPLICATION_GATEWAYS, name: name)
-          ag = get_resource_by_id(url)
-          if ag.nil?
-            raise AzureNotFoundError, "get_application_gateway_by_name - cannot find the application gateway by name `#{name}'"
-          end
 
-          backend_addresses = ag['properties']['backendAddressPools'][0]['properties']['backendAddresses']
-          backend_address = {
-            "ipAddress" => ip_address
-          }
-          if backend_addresses.include?(backend_address)
-            backend_addresses.delete(backend_address)
-            http_put(url, ag, ignore_canceled_status: true)
-          end
-          mutex.unlock
-        else
-          mutex.wait
-        end
-        true
-      rescue => e
-        if e.message == BOSH_LOCK_EXCEPTION_TIMEOUT
-          cloud_error("delete_backend_address_of_application_gateway: Failed to finish the deleting of the backend address `#{ip_address}' in application gateway `#{name}' in #{mutex.expired} seconds.")
-        end
-        raise e
+      url = rest_api_url(REST_API_PROVIDER_NETWORK, REST_API_NETWORK_APPLICATION_GATEWAYS, name: name)
+      ag = get_resource_by_id(url)
+      if ag.nil?
+        raise AzureNotFoundError, "delete_backend_address_of_application_gateway - Cannot find the application gateway \"#{name}\"."
       end
+
+      backend_addresses = ag['properties']['backendAddressPools'][0]['properties']['backendAddresses']
+      backend_address = {
+        "ipAddress" => ip_address
+      }
+      if backend_addresses.include?(backend_address)
+        backend_addresses.delete(backend_address)
+        http_put(url, ag)
+      end
+
+      true
     end
 
     # Network/Network Security Group
@@ -2201,7 +2177,7 @@ module Bosh::AzureCloud
         end
 
         status = result['status']
-        if status == PROVISIONING_STATE_SUCCEEDED || (options[:ignore_canceled_status] && status == PROVISIONING_STATE_CANCELED)
+        if status == PROVISIONING_STATE_SUCCEEDED
           return true
         elsif status == PROVISIONING_STATE_INPROGRESS
           @logger.debug("check_completion - InProgress...")
@@ -2242,7 +2218,7 @@ module Bosh::AzureCloud
       result = JSON(response.body) unless response.body.nil?
     end
 
-    def http_put(url, body = nil, params = {}, retry_after = 5, ignore_canceled_status: false)
+    def http_put(url, body = nil, params = {}, retry_after = 5)
       uri = http_url(url, params)
       retry_count = 0
 
@@ -2263,8 +2239,7 @@ module Bosh::AzureCloud
           :return_code => [HTTP_CODE_OK, HTTP_CODE_CREATED],
           :success_code => [HTTP_CODE_CREATED, HTTP_CODE_ACCEPTED],
           :api_version  => params['api-version'],
-          :retry_after  => retry_after,
-          :ignore_canceled_status => ignore_canceled_status
+          :retry_after  => retry_after
         }
         check_completion(response, options)
       rescue AzureAsynInternalError => e

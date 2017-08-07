@@ -20,9 +20,9 @@ In this example, we create 2 routers (10.0.16.12 and 10.0.16.22).
 
     ```
     Input your location (e.g. East Asia): East Asia
-    Input your resource group name: binxi1109ag
+    Input your resource group name: testag
     Input your application gateway name: ApplicationGateway
-    Will create the application gateway ApplicationGateway in your resrouce group binxi1109ag
+    Will create the application gateway ApplicationGateway in your resrouce group testag
     Input your virtual network name [boshvnet-crp]:
     Input your subnet name for the application gateway [ApplicationGateway]: 
     Input your public IP name[publicIP01]: 
@@ -50,9 +50,9 @@ In this example, we create 2 routers (10.0.16.12 and 10.0.16.22).
 
     ```
     Input your location (e.g. East Asia): East Asia
-    Input your resource group name: binxi1109ag
+    Input your resource group name: testag
     Input your application gateway name: ApplicationGateway
-    Will create the application gateway ApplicationGateway in your resrouce group binxi1109ag
+    Will create the application gateway ApplicationGateway in your resrouce group testag
     Input your virtual network name [boshvnet-crp]:
     Input your subnet name for the application gateway [ApplicationGateway]: 
     Input your public IP name[publicIP01]: 

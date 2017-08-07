@@ -14,6 +14,8 @@ describe Bosh::AzureCloud::VMManager do
     let(:storage_account_name) { "fake-storage-account-name" }
     let(:vm_name) { "fake-vm-name" }
     let(:availability_set_name) { "#{SecureRandom.uuid}" }
+    let(:appgw_name) { "fake-ag-name" }
+    let(:appgw_backend_pool_ip) { "fake-private-ip" }
 
     let(:load_balancer) { double("load_balancer") }
     let(:network_interface) {
@@ -27,6 +29,8 @@ describe Bosh::AzureCloud::VMManager do
 
     let(:instance_id) { instance_double(Bosh::AzureCloud::InstanceId) }
 
+    let(:lock_application_gateway) { instance_double(Bosh::AzureCloud::Helpers::FileMutex) }
+    
     before do
       allow(instance_id).to receive(:resource_group_name).
         and_return(resource_group_name)
@@ -39,6 +43,12 @@ describe Bosh::AzureCloud::VMManager do
         with(resource_group_name, vm_name).and_return(network_interface)
       allow(client2).to receive(:get_public_ip_by_name).
         with(resource_group_name, vm_name).and_return(public_ip)
+
+      allow(Bosh::AzureCloud::Helpers::FileMutex).to receive(:new).and_return(lock_application_gateway)
+      allow(lock_application_gateway).to receive(:expired).and_return("fake-expired-value")
+      allow(lock_application_gateway).to receive(:lock).and_return(true)
+      allow(lock_application_gateway).to receive(:wait)
+      allow(lock_application_gateway).to receive(:unlock)
     end
 
     context "When vm is not nil" do
@@ -55,10 +65,11 @@ describe Bosh::AzureCloud::VMManager do
       end
 
       context "when vm is not in an availability set" do
+      
         let(:vm) {
           {
              :network_interfaces => [
-               {:name => "fake-nic-1"},
+               {:name => "fake-nic-1", :private_ip => appgw_backend_pool_ip, :tags => {"application_gateway" => appgw_name}},
                {:name => "fake-nic-2"}
              ]
           }
@@ -105,7 +116,7 @@ describe Bosh::AzureCloud::VMManager do
             {
                :availability_set => availability_set,
                :network_interfaces => [
-                 {:name => "fake-nic-1"},
+                 {:name => "fake-nic-1", :private_ip => appgw_backend_pool_ip, :tags => {"application_gateway" => appgw_name}},
                  {:name => "fake-nic-2"}
                ]
             }
@@ -119,6 +130,7 @@ describe Bosh::AzureCloud::VMManager do
 
           it "should delete all resources, not including the availability set" do
             expect(client2).to receive(:delete_virtual_machine).with(resource_group_name, vm_name)
+            expect(client2).to receive(:delete_backend_address_of_application_gateway).with(appgw_name, appgw_backend_pool_ip)
             expect(client2).not_to receive(:delete_availability_set)
             expect(client2).to receive(:delete_network_interface).with(resource_group_name, "fake-nic-1")
             expect(client2).to receive(:delete_network_interface).with(resource_group_name, "fake-nic-2")

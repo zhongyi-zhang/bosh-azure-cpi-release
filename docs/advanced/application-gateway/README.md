@@ -29,7 +29,7 @@ Azure Application Gateway provides application-level routing and load balancing 
 
 ## 3.1 Create Application Gateway and its Public IP
 
-### Azure ARM Template
+### 3.1.1 Via ARM templates (**RECOMMENDED**)
 
 <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fzhongyi-zhang%2Fbosh-azure-cpi-release%2Fsupport-application-gateway%2Fdocs%2Fadvanced%2Fapplication-gateway%2Ftemplates%2Fazuredeploy.json" target="_blank">
     <img src="http://azuredeploy.net/deploybutton.png"/>
@@ -40,6 +40,11 @@ Azure Application Gateway provides application-level routing and load balancing 
   ```
   base64 domain.name.pfx | tr -d '\n'
   ```
+
+### 3.1.2 Manually
+
+* [Azure CLI](./cli/create-ag.sh)
+* [Powershell](./powershell/)
 
 ## 3.2 Add Cloud Foundry routers into Application Gateway's backend pool
 

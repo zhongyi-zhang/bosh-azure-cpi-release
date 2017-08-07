@@ -530,6 +530,10 @@ module Bosh::AzureCloud
     #   raise 'what action fails because of the lock error'
     # end
     #
+    # NOTE:
+    #   The difference between modified time and current time determines if timeout or not.
+    #   So the actully time to wait may be longer than the time set by `expired`.
+    #
     class FileMutex
       attr_reader :expired
 
