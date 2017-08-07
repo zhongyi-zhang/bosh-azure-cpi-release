@@ -1477,21 +1477,34 @@ module Bosh::AzureCloud
     def add_backend_address_of_application_gateway(name, ip_address)
       @logger.debug("add_backend_address_of_application_gateway - trying to add `#{ip_address}' to the backend address pools of the applicaiton gateway #{name}")
       
-      url = rest_api_url(REST_API_PROVIDER_NETWORK, REST_API_NETWORK_APPLICATION_GATEWAYS, name: name)
-      ag = get_resource_by_id(url)
-      if ag.nil?
-        raise AzureNotFoundError, "get_application_gateway_by_name - cannot find the application gateway by name `#{name}'"
-      end
+      mutex = FileMutex.new("#{BOSH_LOCK_APPLICATION_GATEWAY}-#{name}", @logger, BOSH_LOCK_APPLICATION_GATEWAY_TIMEOUT)
+      begin
+        if mutex.lock
+          url = rest_api_url(REST_API_PROVIDER_NETWORK, REST_API_NETWORK_APPLICATION_GATEWAYS, name: name)
+          ag = get_resource_by_id(url)
+          if ag.nil?
+            raise AzureNotFoundError, "get_application_gateway_by_name - cannot find the application gateway by name `#{name}'"
+          end
 
-      backend_addresses = ag['properties']['backendAddressPools'][0]['properties']['backendAddresses']
-      backend_address = {
-        "ipAddress" => ip_address
-      }
-      unless backend_addresses.include?(backend_address)
-        backend_addresses.push(backend_address)
-        http_put(url, ag, ignore_canceled_status: true)
+          backend_addresses = ag['properties']['backendAddressPools'][0]['properties']['backendAddresses']
+          backend_address = {
+            "ipAddress" => ip_address
+          }
+          unless backend_addresses.include?(backend_address)
+            backend_addresses.push(backend_address)
+            http_put(url, ag, ignore_canceled_status: true)
+          end
+          mutex.unlock
+        else
+          mutex.wait
+        end
+        true
+      rescue => e
+        if e.message == BOSH_LOCK_EXCEPTION_TIMEOUT
+          cloud_error("add_backend_address_of_application_gateway: Failed to finish the adding of the backend address `#{ip_address}' in application gateway `#{name}' in #{mutex.expired} seconds.")
+        end
+        raise e
       end
-      true
     end
 
     # Delete a backend address for an application gateway
@@ -1505,21 +1518,34 @@ module Bosh::AzureCloud
     def delete_backend_address_of_application_gateway(name, ip_address)
       @logger.debug("delete_backend_address_of_application_gateway - trying to remove `#{ip_address}' from the backend address pools of the applicaiton gateway #{name}")
       
-      url = rest_api_url(REST_API_PROVIDER_NETWORK, REST_API_NETWORK_APPLICATION_GATEWAYS, name: name)
-      ag = get_resource_by_id(url)
-      if ag.nil?
-        raise AzureNotFoundError, "get_application_gateway_by_name - cannot find the application gateway by name `#{name}'"
-      end
+      mutex = FileMutex.new("#{BOSH_LOCK_APPLICATION_GATEWAY}-#{name}", @logger, BOSH_LOCK_APPLICATION_GATEWAY_TIMEOUT)
+      begin
+        if mutex.lock
+          url = rest_api_url(REST_API_PROVIDER_NETWORK, REST_API_NETWORK_APPLICATION_GATEWAYS, name: name)
+          ag = get_resource_by_id(url)
+          if ag.nil?
+            raise AzureNotFoundError, "get_application_gateway_by_name - cannot find the application gateway by name `#{name}'"
+          end
 
-      backend_addresses = ag['properties']['backendAddressPools'][0]['properties']['backendAddresses']
-      backend_address = {
-        "ipAddress" => ip_address
-      }
-      if backend_addresses.include?(backend_address)
-        backend_addresses.delete(backend_address)
-        http_put(url, ag, ignore_canceled_status: true)
+          backend_addresses = ag['properties']['backendAddressPools'][0]['properties']['backendAddresses']
+          backend_address = {
+            "ipAddress" => ip_address
+          }
+          if backend_addresses.include?(backend_address)
+            backend_addresses.delete(backend_address)
+            http_put(url, ag, ignore_canceled_status: true)
+          end
+          mutex.unlock
+        else
+          mutex.wait
+        end
+        true
+      rescue => e
+        if e.message == BOSH_LOCK_EXCEPTION_TIMEOUT
+          cloud_error("delete_backend_address_of_application_gateway: Failed to finish the deleting of the backend address `#{ip_address}' in application gateway `#{name}' in #{mutex.expired} seconds.")
+        end
+        raise e
       end
-      true
     end
 
     # Network/Network Security Group
