@@ -349,6 +349,31 @@ describe Bosh::AzureCloud::Cloud do
           and_return(instance_id_string)
       end
 
+      context "when instance_type is not provided" do
+        let(:resource_pool) { {} }
+
+        it "should raise an error" do
+          expect(client2).not_to receive(:delete_virtual_machine)
+          expect(client2).not_to receive(:delete_network_interface)
+          expect(client2).to receive(:list_network_interfaces_by_keyword).with(resource_group_name, vm_name).and_return([])
+          expect(client2).to receive(:get_public_ip_by_name).
+            with(resource_group_name, vm_name).
+            and_return({ :ip_address => "public-ip" })
+          expect(client2).to receive(:delete_public_ip).with(resource_group_name, vm_name)
+
+          expect {
+            managed_cloud.create_vm(
+              agent_id,
+              stemcell_id,
+              resource_pool,
+              networks_spec,
+              disk_locality,
+              environment
+            )
+          }.to raise_error /missing required cloud property `instance_type'/
+        end
+      end
+
       context 'when it failed to get the user image info' do
         before do
           allow(Bosh::AzureCloud::NetworkConfigurator).to receive(:new).

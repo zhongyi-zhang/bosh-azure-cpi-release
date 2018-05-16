@@ -556,7 +556,7 @@ module Bosh::AzureCloud
     #     # Please note, the mutex should NOT be unlocked, because other processes will end mutex.wait and continue to use the shared resource if unlocked.
     #     # If your work is a long-running task,
     #     #   you need to call mutex.update() in do_something() to update the lock before it timeouts (60s in the example).
-    #     do_something() 
+    #     do_something()
     #     mutex.unlock
     #   else
     #     mutex.wait
@@ -770,6 +770,9 @@ module Bosh::AzureCloud
     end
 
     def get_storage_account_type_by_instance_type(instance_type)
+      if instance_type.nil?
+        cloud_error("missing required cloud property `instance_type'.")
+      end
       instance_type = instance_type.downcase
       storage_account_type = STORAGE_ACCOUNT_TYPE_STANDARD_LRS
       if instance_type.start_with?("standard_ds") || instance_type.start_with?("standard_gs") || ((instance_type =~ /^standard_f(\d)+s/) == 0)
